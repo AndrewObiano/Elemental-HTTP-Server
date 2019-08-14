@@ -2,122 +2,113 @@
 
 const http = require("http");
 const fs = require("fs");
+const elemTemplate = require("./elemTemplate.js");
+const indexTemplate = require("./indexTemplate.js");
+const querystring = require("querystring");
 const PORT = 8080;
 const server = http.createServer((req, res) => {
-  // console.log(req.method);
-  // console.log(req.url);
-  // console.log(req.headers);
+  req.setEncoding("utf8");
 
-  // body???
-  let body = "sdflkjsdfljk";
-  req.on("data", chunk => {
-    body += chunk;
-  });
-
-  // req.on("end", () => {
-
+  // START OF GET
   if (req.method === "GET") {
-    let contentType = "text/html; charset=utf-8";
     let URL = req.url;
     if (URL === "/") {
       URL = "/index.html";
     }
-
+    let getType = URL.split(".");
+    let contentType = getType[1]; // grab "html" or "css"
+    // check the public directory
     fs.readdir("./public/", (err, dir) => {
       if (err) {
         return console.log(err);
       }
       if (!dir.includes(URL.slice(1))) {
+        // check if public directory has the specified URL
         URL = "/404.html";
+        contentType = "html";
       }
-      if (URL === "/index.html") {
-        // read contents of the public dir
-        fs.readFile("./public/index.html", (err, data) => {
-          if (err) {
-            return console.log(err);
-          }
 
-          res.writeHead(200, {
-            "content-length": data.toString().length,
-            "content-type": contentType
-          });
-
-          res.write(data.toString());
-          res.end();
-          return;
+      // read contents of the public dir
+      fs.readFile(`./public${URL}`, (err, data) => {
+        if (err) {
+          return console.log(err);
+        }
+        // write the header info
+        res.writeHead(200, {
+          "content-length": data.toString().length,
+          "content-type": `text/${contentType}`
         });
-      }
-
-      if (URL === "/helium.html") {
-        fs.readFile("./public/helium.html", (err, data) => {
-          if (err) {
-            return console.log(err);
-          }
-
-          res.writeHead(200, {
-            "content-length": data.toString().length,
-            "content-type": contentType
-          });
-
-          res.write(data.toString());
-          res.end();
-          return;
-        });
-      }
-
-      if (URL === "/hydrogen.html") {
-        fs.readFile("./public/hydrogen.html", (err, data) => {
-          if (err) {
-            return console.log(err);
-          }
-
-          res.writeHead(200, {
-            "content-length": data.toString().length,
-            "content-type": contentType
-          });
-
-          res.write(data.toString());
-          res.end();
-          return;
-        });
-      }
-
-      if (URL === "/styles.css") {
-        fs.readFile("./public/styles.css", (err, data) => {
-          if (err) {
-            return console.log(err);
-          }
-
-          res.writeHead(200, {
-            "content-length": data.toString().length,
-            "content-type": "text/css"
-          });
-
-          res.write(data.toString());
-          res.end();
-          return;
-        });
-      }
-
-      if (URL === "/404.html") {
-        fs.readFile("./public/404.html", (err, data) => {
-          if (err) {
-            return console.log(err);
-          }
-
-          res.writeHead(200, {
-            "content-length": data.toString().length,
-            "content-type": contentType
-          });
-
-          res.write(data.toString());
-          res.end();
-          return;
-        });
-      }
+        // write the actual file data
+        res.write(data.toString());
+        res.end();
+        return;
+      });
     });
-  }
-  // });
+  } // END OF GET
+
+  // START OF POST
+  if (req.method === "POST") {
+    let URL = req.url;
+    // body
+    let body = ""; // the data coming from Postman
+    req.on("data", chunk => {
+      body += chunk;
+
+      req.on("end", () => {
+        fs.writeFile(
+          `./public${URL}.html`,
+          elemTemplate(querystring.parse(body)), // read data as an object
+          err => {
+            if (err) {
+              return console.log(err);
+            }
+          }
+        );
+
+        fs.readdir(`./public`, (err, files) => {
+          // read the public folder directory
+          if (err) {
+            return console.log(err);
+          }
+
+          let filteredFiles = files.filter(
+            // take out anything that's not an element html file
+            element =>
+              !element.includes(".keep") &&
+              !element.includes("404.html") &&
+              !element.includes("index.html") &&
+              !element.includes("css")
+          );
+
+          let count = filteredFiles.length;
+          let listElement = ``;
+          let nameFormat = ``;
+
+          for (let i = 0; i < filteredFiles.length; i++) {
+            // formatting name and links for index.html
+            nameFormat =
+              filteredFiles[i].charAt(0).toUpperCase() +
+              filteredFiles[i].split(".")[0].slice(1);
+            listElement += `
+            <li>
+            <a href="/${filteredFiles[i]}">${nameFormat}</a>
+            </li>`;
+          }
+
+          let newIndex = indexTemplate(listElement, count);
+
+          fs.writeFile(`./public/index.html`, newIndex, err => {
+            // overwrite index file with updated index file
+            if (err) {
+              return console.log(err);
+            }
+          });
+        });
+
+        res.end();
+      });
+    });
+  } // END OF POST
 });
 
 server.listen(PORT, () => {
