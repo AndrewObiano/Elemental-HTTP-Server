@@ -12,17 +12,25 @@ const server = http.createServer((req, res) => {
   // START OF GET
   if (req.method === "GET") {
     let URL = req.url;
+    let date = new Date();
+
     if (URL === "/") {
       URL = "/index.html";
     }
+
     let getType = URL.split(".");
     let contentType = getType[1]; // grab "html" or "css"
+
     // check the public directory
     fs.readdir("./public/", (err, dir) => {
       if (err) {
-        return console.log(err);
-      }
-      if (!dir.includes(URL.slice(1))) {
+        res.writeHead(500, {
+          "Content-Type": `application/json, charset=utf-8`,
+          error: `resource ${req.url} does not exist`,
+          Date: date
+        });
+        res.end();
+      } else if (!dir.includes(URL.slice(1))) {
         // check if public directory has the specified URL
         URL = "/404.html";
         contentType = "html";
@@ -31,7 +39,12 @@ const server = http.createServer((req, res) => {
       // read contents of the public dir
       fs.readFile(`./public${URL}`, (err, data) => {
         if (err) {
-          return console.log(err);
+          res.writeHead(500, {
+            "Content-Type": `application/json, charset=utf-8`,
+            error: `resource ${req.url} does not exist`,
+            Date: date
+          });
+          res.end();
         }
         // write the header info
         res.writeHead(200, {
@@ -47,8 +60,10 @@ const server = http.createServer((req, res) => {
   } // END OF GET
 
   // START OF POST
-  if (req.method === "POST") {
+  else if (req.method === "POST") {
     let URL = req.url;
+    let date = new Date();
+
     // body
     let body = ""; // the data coming from Postman
     req.on("data", chunk => {
@@ -60,7 +75,12 @@ const server = http.createServer((req, res) => {
           elemTemplate(querystring.parse(body)), // read data as an object
           err => {
             if (err) {
-              return console.log(err);
+              res.writeHead(500, {
+                "Content-Type": `application/json, charset=utf-8`,
+                error: `resource ${req.url} does not exist`,
+                Date: date
+              });
+              res.end();
             }
           }
         );
@@ -68,7 +88,12 @@ const server = http.createServer((req, res) => {
         fs.readdir(`./public`, (err, files) => {
           // read the public folder directory
           if (err) {
-            return console.log(err);
+            res.writeHead(500, {
+              "Content-Type": `application/json, charset=utf-8`,
+              error: `resource ${req.url} does not exist`,
+              Date: date
+            });
+            res.end();
           }
 
           let filteredFiles = files.filter(
@@ -100,11 +125,15 @@ const server = http.createServer((req, res) => {
           fs.writeFile(`./public/index.html`, newIndex, err => {
             // overwrite index file with updated index file
             if (err) {
-              return console.log(err);
+              res.writeHead(500, {
+                "Content-Type": `application/json, charset=utf-8`,
+                error: `resource ${req.url} does not exist`,
+                Date: date
+              });
+              res.end();
             }
           });
         });
-
         res.end();
       });
     });
